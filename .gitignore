@@ -1,0 +1,22 @@
+# Unsloth / Tokenizer Cache
+unsloth_compiled_cache/
+.ipynb_checkpoints/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+env/
+
+# Logs
+*.log
+training.log
+
+# Large Models / Temp Merges (Excluded to save GH space)
+models/
+models_gguf/
+*.gguf
+
+# OS
+.DS_Store
