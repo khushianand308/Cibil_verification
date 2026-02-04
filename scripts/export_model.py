@@ -43,11 +43,21 @@ def main():
     print(f"Merged model: {merged_path}")
     print(f"GGUF models (if successful) are in: models/cibil_qwen25_gguf/")
 
-    # 3. PUSH TO HUGGING FACE (Optional)
-    # Uncomment the lines below and replace 'your-username/repo-name' to upload!
-    # print("\n--- Pushing to Hugging Face ---")
-    # model.push_to_hub("your-username/model-name-lora", token = "hf_...") # Push Adapters
-    # model.push_to_hub_merged("your-username/model-name", tokenizer, save_method = "merged_16bit", token = "hf_...") # Push Merged 16bit
+    # 3. PUSH TO HUGGING FACE
+    # We push both the lightweight adapters and the full production-ready merged model.
+    # Versioning: Every push creates a new commit. We'll label this as v1.0.
+    repo_name = "khushianand01/cibil-verification-qwen2.5"
+    version_msg = "Initial production release v1.0"
+    
+    print(f"\n--- Pushing to Hugging Face: {repo_name} ---")
+    
+    # Push Adapters (Option 2) - This is fast (~40MB)
+    print("Pushing LoRA adapters...")
+    model.push_to_hub(f"{repo_name}-lora", commit_message = version_msg) 
+    
+    # Push Merged 16bit (Option 1) - SKIPPED as per user request
+    # print("Pushing merged 16-bit model (this may take a while)...")
+    # model.push_to_hub_merged(repo_name, tokenizer, save_method = "merged_16bit", commit_message = version_msg)
 
 if __name__ == "__main__":
     main()

@@ -13,10 +13,9 @@ SYSTEM_PROMPT = "You are an expert utility agent for CIBIL verification analysis
 
 # HARDCODED TEST TRANSCRIPT
 TEST_TRANSCRIPT = """
-Agent: Hello, am I speaking with RAHUL SHARMA?
-User: Yes.
-Agent: We are calling regarding a loan account ending 123. Is this your loan?
-User: I am Rahul Sharma, but I don’t have any loan with you.
+Agent: HI, I am Sakshi calling from HDB Financial services . Am I speaking to DEEPAK  BAIRWA?
+User: Who is Deepika Bhairava, man? You are bothering me, calling me again and again, I have received calls three-four times. Oh man, come and check with me here. What more should I say than this? Hey, man, don't torture me, look, I received many calls yesterday as well, I got tired of replying. Or should I switch off the SIM? Hey, I don't have any loan, so... I don't have any
+Agent: I understand your frustration, but according to our records, this number is linked to a RELPL loan for DEEPAK BAIRWA. Are you absolutely certain you are not DEEPAK BAIRWA?
 """
 
 def extract_json(text):
@@ -71,17 +70,18 @@ def main():
         tokenize = True,
         add_generation_prompt = True,
         return_tensors = "pt",
+        return_dict = True,
     ).to("cuda")
 
     with torch.no_grad():
         outputs = model.generate(
-            input_ids = inputs,
+            **inputs,
             max_new_tokens = 256,
             use_cache = True,
             do_sample = False,
         )
     
-    prediction_raw = tokenizer.decode(outputs[0][len(inputs[0]):], skip_special_tokens=True)
+    prediction_raw = tokenizer.decode(outputs[0][len(inputs["input_ids"][0]):], skip_special_tokens=True)
 
     print("\nModel Output (Raw):")
     print(prediction_raw)
