@@ -77,5 +77,81 @@ python scripts/evaluate_model.py
 - `outputs/cibil_qwen25_lora/`: Final fine-tuned LoRA adapters.
 - `training.log`: Detailed logs from the latest training run.
 
+---
+
+## 🖥️ Production Server Management
+
+### 1. Starting the Server
+The server runs on **Port 9090**.
+
+**Option A: Using the automation script (Recommended)**
+```bash
+./start_server.sh
+```
+
+**Option B: Manual Start (via Conda)**
+```bash
+# Activate the environment
+conda activate disposition_v3
+
+# Method 1: Direct Python (Recommended for testing)
+python app.py
+
+# Method 2: Uvicorn directly
+uvicorn app:app --host 0.0.0.0 --port 9090
+```
+
+### 2. Stopping / Killing the Server
+```bash
+# Graceful stop (if running in terminal)
+Ctrl + C
+
+# Forced stop (for background processes)
+pkill -f "uvicorn app:app"
+```
+
+### 3. Running in Background (24/7)
+To keep the server alive after you close your laptop, use **tmux**.
+```bash
+# Start a new session and run server
+tmux new -s cibil-server "./start_server.sh"
+
+# Disconnect (keep running)
+Press Ctrl + B, then D
+
+# Re-attach to check logs
+tmux attach -t cibil-server
+
+# Kill / Close the session entirely
+tmux kill-session -t cibil-server
+```
+
+---
+
+## 🧪 API Testing (CURL Commands)
+
+The main endpoint is `POST /verify`.
+
+### Scenario 1: Full Verification
+```bash
+curl -X POST "http://localhost:9090/verify" \
+     -H "Content-Type: application/json" \
+     -d '{"transcript": "Agent: HI, I am Sakshi from HDB. Am I speaking to VIJAYAKRISHNA?\nUser: Yeah.\nAgent: Confirm loan 21?\nUser: Yes."}'
+```
+
+### Scenario 2: Wrong Number
+```bash
+curl -X POST "http://localhost:9090/verify" \
+     -H "Content-Type: application/json" \
+     -d '{"transcript": "Agent: Am I speaking to SRUTHI?\nUser: No, this is a wrong number. I am not Sruthi."}'
+```
+
+### Scenario 3: Disconnected
+```bash
+curl -X POST "http://localhost:9090/verify" \
+     -H "Content-Type: application/json" \
+     -d '{"transcript": "Agent: Hello? Is anyone there?\nAgent: I think the line is bad, I will call you back."}'
+```
+
 ## 📝 License
 Proprietary / Internal Use Only.
