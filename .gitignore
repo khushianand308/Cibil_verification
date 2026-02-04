@@ -17,6 +17,7 @@ training.log
 models/
 models_gguf/
 *.gguf
+outputs/
 
 # OS
 .DS_Store
