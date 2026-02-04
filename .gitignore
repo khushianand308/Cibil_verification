@@ -16,8 +16,8 @@ training.log
 # Large Models / Temp Merges (Excluded to save GH space)
 models/
 models_gguf/
-*.gguf
 outputs/
+*.gguf
 
 # OS
 .DS_Store
