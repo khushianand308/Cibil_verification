@@ -53,7 +53,7 @@ async def startup_event():
     # Correction: We do NOT use get_peft_model here because that initializes NEW random weights for training.
     # Instead, we just load the saved adapter we trained.
     from peft import PeftModel
-    model = PeftModel.from_pretrained(model, ADAPTERS_REPO)
+    model = PeftModel.from_pretrained(model, ADAPTERS_REPO, revision="v1")
     
     FastLanguageModel.for_inference(model) # Enable native 2x faster inference
     print("✅ Model Loaded and Ready!")

@@ -6,7 +6,7 @@ import os
 
 # Configuration
 DEFAULT_MODEL = "unsloth/Qwen2.5-7B-Instruct-bnb-4bit"
-DEFAULT_LORA_PATH = "outputs/cibil_qwen25_lora"
+DEFAULT_LORA_PATH = "khushianand01/cibil-verification-qwen2.5-lora"
 MAX_SEQ_LENGTH = 2048
 
 SYSTEM_PROMPT = "You are an expert utility agent for CIBIL verification analysis. Extract the disposition and verification details from the transcript. Return ONLY valid JSON."
@@ -52,7 +52,14 @@ def main():
 
     model = FastLanguageModel.for_inference(model)
     try:
-        model.load_adapter(args.lora)
+        if "huggingface.co" in args.lora or "/" in args.lora:
+             # Assume it's a repo or path, try loading with PEFT for revision support if needed
+             from peft import PeftModel
+             # Check if it looks like our HF repo to apply v1
+             revision = "v1" if "khushianand01/cibil" in args.lora else None
+             model = PeftModel.from_pretrained(model, args.lora, revision=revision)
+        else:
+             model.load_adapter(args.lora)
     except Exception as e:
         print(f"⚠️ Error loading adapters: {e}")
         return
