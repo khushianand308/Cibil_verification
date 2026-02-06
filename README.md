@@ -14,7 +14,7 @@ The objective is to analyze customer call transcripts and output a structured JS
 ## 🚀 Performance Snapshot (v2 Production)
 The model was fine-tuned on **12,000 balanced samples** using `Qwen2.5-7B-Instruct-bnb-4bit`.
 
-| Metric | v2 Score | status |
+| Metric | v2 Score | Status |
 | :--- | :--- | :--- |
 | **Overall Accuracy (Exact Match)** | **89.94%** | PASS |
 | **JSON Validity Rate** | **100.00%** | PASS |
@@ -32,14 +32,12 @@ The model was fine-tuned on **12,000 balanced samples** using `Qwen2.5-7B-Instru
 The project uses the `disposition_v3` conda environment.
 
 ```bash
+# 1. Activate Environment
 conda activate disposition_v3
+
+# 2. Install Dependencies
 pip install -r requirements.txt
 ```
-
-**Key Dependencies**:
-- `unsloth`: For 2x faster, 4-bit memory-efficient fine-tuning.
-- `transformers`, `peft`, `trl`: Hugging Face training stack.
-- `fastapi`, `uvicorn`: For the Production API.
 
 ---
 
@@ -54,7 +52,7 @@ python scripts/split_data.py
 ```
 
 ### 2. Fine-Tuning (v2)
-Fine-tune the model on the T4 GPU.
+Fine-tune the model on the GPU.
 ```bash
 python scripts/train.py
 ```
@@ -76,38 +74,97 @@ python scripts/export_model.py
 
 ## 🖥️ Production API Management
 
-The API is configured to load V2 adapters from the `v2` branch of the Hugging Face repository.
+The API runs on **Port 9090**. It is configured to load V2 adapters from the `v2` branch of the Hugging Face repository.
 
-### 1. Starting the Server
+### 1. Starting the Server (Production Methods)
+
+#### Which is better? TMUX vs nohup
+- **TMUX (Recommended)**: Best for monitoring. You can "attach" to the session and see the same screen the server sees. Ideal if you want to watch the model load.
+- **nohup**: Best for "fire and forget". It just runs in the background and writes to a log file. Use this if you don't need to interact with the console.
+
+#### Option A: TMUX (Recommended for live monitoring)
+TMUX ensures the API keeps running even if you disconnect from SSH, and allows you to "attach" to see logs live.
 ```bash
-# Starts in background and logs to api_v2_hf.log
+# Create a new session and start the API
+tmux new -s cibil-v2 "python app.py"
+
+# To Detach (Leave it running in background): 
+# Press Ctrl + B, then press D
+
+# To Re-attach (See live logs again):
+tmux attach -t cibil-v2
+```
+
+#### Option B: Normal Background (Standard nohup)
+```bash
+# Start in background and redirect logs to a file
 nohup python app.py > api_v2_hf.log 2>&1 &
 ```
 
-### 2. Switching Versions (v1 vs v2)
-To switch between versions, modify `app.py`:
-- **v2**: `revision="v2"` in `PeftModel.from_pretrained`
-- **v1**: `revision="v1"` in `PeftModel.from_pretrained`
-
-### 3. Monitoring & Stopping
+### 2. Monitoring & Troubleshooting
 ```bash
-# View Logs
-tail -f api_v2_hf.log
-
-# Check Process
+# Check if API is running and see Process ID (PID)
 ps -aux | grep app.py
 
-# Stop Server
+# Check GPU Memory Usage
+nvidia-smi
+
+# View Logs (If using Option B)
+tail -f api_v2_hf.log
+```
+
+### 3. Killing / Stopping the API
+```bash
+# Stop any running app.py processes
 pkill -f "python app.py"
+
+# To kill a specific PID (if pkill fails)
+# kill -9 <PID_FROM_PS_COMMAND>
+
+# To kill the TMUX session
+tmux kill-session -t cibil-v2
+```
+
+### 4. Switching Versions (v1 vs v2)
+To switch between versions, modify `app.py`:
+- **v2**: `model = PeftModel.from_pretrained(model, ADAPTERS_REPO, revision="v2")`
+- **v1**: `model = PeftModel.from_pretrained(model, ADAPTERS_REPO, revision="v1")`
+
+---
+
+## 🧪 Testing with CURL
+
+Use these commands to verify the API logic.
+
+### Case 1: Full Success
+```bash
+curl -X POST "http://localhost:9090/verify" \
+     -H "Content-Type: application/json" \
+     -d '{"transcript": "Agent: HI, I am Sakshi calling from HDB Financial services . Am I speaking to SHAIK MUBEENA?\nUser: Yes.\nAgent: The loan account number ends with 97. Can you confirm if this loan belongs to you?\nUser: Yes, it is mine."}'
+```
+
+### Case 2: Wrong Number
+```bash
+curl -X POST "http://localhost:9090/verify" \
+     -H "Content-Type: application/json" \
+     -d '{"transcript": "Agent: Am I speaking to DEEPAK DWIVEDI?\nUser: No, wrong number."}'
+```
+
+### Case 3: Identity Correction (Relative speaking)
+```bash
+curl -X POST "http://localhost:9090/verify" \
+     -H "Content-Type: application/json" \
+     -d '{"transcript": "Agent: Am I speaking to RISHAL KAIBARTA?\nUser: No, I am his brother."}'
 ```
 
 ---
 
 ## 📂 Directory Structure
-- `scripts/`: Implementation scripts (v2 specific scripts included).
+- `scripts/`: Implementation scripts (v2 specific).
 - `data/processed/`: Balanced 12k training/test datasets.
 - `models/`: Merged standalone 15GB models (local only).
-- `reports/`: Evaluation summaries and CSV results.
+- `requirements.txt`: Project dependencies.
+- `reports/`: Evaluation summaries.
 
 ## 📝 License
 Proprietary / Internal Use Only.
