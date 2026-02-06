@@ -158,7 +158,7 @@ def main():
         print("\nDetailed Disposition Performance (Valid JSON only):")
         print(classification_report(valid_df['gt_disp'], valid_df['pred_disp'], zero_division=0))
     else:
-        print("⚠️ No valid JSON outputs to calculate field-level accuracy.")
+        print("No valid JSON outputs to calculate field-level accuracy.")
 
 if __name__ == "__main__":
     main()

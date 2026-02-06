@@ -1,0 +1,13 @@
+unsloth
+torch
+transformers
+peft
+trl
+fastapi
+uvicorn
+pydantic
+pandas
+scikit-learn
+tqdm
+huggingface_hub
+python-dotenv

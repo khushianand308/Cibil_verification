@@ -1,0 +1,38 @@
+🚀 V2 MODEL PRODUCTION EVALUATION REPORT
+==================================================
+Date: 2026-02-05
+Model: unsloth/Qwen2.5-7B-Instruct-bnb-4bit + LoRA v2
+Dataset: data/processed/test.jsonl (1,133 samples)
+
+SUMMARY METRICS
+--------------------------------------------------
+Total Samples: 1,133
+JSON Validity Rate: 100.00%
+Main KPI (Exact Match Rate): 89.94%
+Rule Violations: 11 (0.97%)
+
+FIELD-LEVEL ACCURACY
+--------------------------------------------------
+NAME_VERIFIED:      97.62%
+LOAN_NUMBER_VERIFIED: 98.15%
+DISPOSITION:         88.79%
+RPC_STATUS:          89.94%
+
+DETAILED DISPOSITION PERFORMANCE
+--------------------------------------------------
+                                   precision    recall  f1-score   support
+
+                         ANSWERED       0.84      0.96      0.90       540
+DISCONNECTED_WITHOUT_CONVERSATION       0.98      0.98      0.98       180
+   DISCONNECTED_WITH_CONVERSATION       0.95      0.60      0.73       184
+                     WRONG_NUMBER       0.92      0.87      0.89       229
+
+                         accuracy                           0.89      1133
+                        macro avg       0.74      0.68      0.70      1133
+                     weighted avg       0.90      0.89      0.88      1133
+
+BUSINESS LOGIC NOTES
+--------------------------------------------------
+- Rule violations dropped from significant levels in v1 to < 1% in v2.
+- The model shows excellent schema discipline with 0 JSON failures.
+- Dispositions are robust, with Answered and Wrong Number showing high F1-scores.

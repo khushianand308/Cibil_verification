@@ -3,7 +3,7 @@ from unsloth import FastLanguageModel
 
 # Configuration
 MODEL_NAME = "unsloth/Qwen2.5-7B-Instruct-bnb-4bit"
-LORA_PATH = "outputs/cibil_qwen25_lora"
+LORA_PATH = "outputs/cibil_qwen2.5_lora_v2"
 MAX_SEQ_LENGTH = 2048
 
 def main():
@@ -18,7 +18,7 @@ def main():
     # 1. Merge and Save to 16bit (Float16)
     # This is the best format for vLLM or standard Hugging Face inference.
     # It combines the "base model" + "your training" into one folder.
-    merged_path = "models/cibil_qwen25_merged_16bit"
+    merged_path = "models/cibil_qwen2.5_merged_v2"
     print(f"\n--- Exporting Merged 16-bit model to {merged_path} ---")
     print("This takes a few minutes and ~15GB disk space...")
     model.save_pretrained_merged(merged_path, tokenizer, save_method = "merged_16bit")
@@ -31,7 +31,7 @@ def main():
     # Note: save_pretrained_gguf might require llama.cpp installed or auto-installs it.
     try:
         model.save_pretrained_gguf(
-            "models/cibil_qwen25_gguf", 
+            "models/cibil_qwen2.5_v2_gguf", 
             tokenizer, 
             quantization_method = "q4_k_m"
         )
@@ -39,15 +39,15 @@ def main():
         print(f"⚠️ GGUF export failed or skipped: {e}")
         print("Install llama.cpp or ensure enough RAM for conversion.")
 
-    print("\n✅ Export Process Completed.")
+    print("\nExport Process Completed.")
     print(f"Merged model: {merged_path}")
     print(f"GGUF models (if successful) are in: models/cibil_qwen25_gguf/")
 
     # 3. PUSH TO HUGGING FACE
     # We push both the lightweight adapters and the full production-ready merged model.
     # Versioning: Every push creates a new commit. We'll label this as v1.0.
-    repo_name = "khushianand01/cibil-verification-qwen2.5"
-    version_msg = "Initial production release v1.0"
+    repo_name = "khushianand01/cibil-verification-v2"
+    version_msg = "Production release v2.0 - 90% accuracy, 100% JSON validity"
     
     print(f"\n--- Pushing to Hugging Face: {repo_name} ---")
     

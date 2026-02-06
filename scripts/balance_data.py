@@ -70,5 +70,5 @@ def balance_data(input_file, output_file, target_cap=400, max_duplication_factor
 if __name__ == "__main__":
     # Ensure reproducibility
     random.seed(42)
-    # Target 400 per bucket x 7 buckets = 2800 total samples
-    balance_data('data/processed/full_data.jsonl', 'data/processed/balanced_data.jsonl', target_cap=400)
+    # Target 1800 per bucket x 8 buckets = ~14.4k total samples (max)
+    balance_data('data/processed/full_data.jsonl', 'data/processed/balanced_data.jsonl', target_cap=1800)

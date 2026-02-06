@@ -6,11 +6,7 @@ ALLOWED_DISPOSITIONS = {
     "ANSWERED", 
     "DISCONNECTED_WITHOUT_CONVERSATION", 
     "DISCONNECTED_WITH_CONVERSATION",
-    "CALL_DROPPED", 
     "WRONG_NUMBER", 
-    "REFUSED", 
-    "VERIFIED", 
-    "NOT_VERIFIED"
 }
 
 ALLOWED_RPC_STATUS = {"true", "false", "partial", "insufficient_data"}

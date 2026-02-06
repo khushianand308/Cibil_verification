@@ -10,7 +10,7 @@ from transformers import TrainingArguments
 MODEL_NAME = "unsloth/Qwen2.5-7B-Instruct-bnb-4bit" # Optimized 4bit version
 TRAIN_FILE = "data/processed/train.jsonl"
 VAL_FILE = "data/processed/val.jsonl"
-OUTPUT_DIR = "outputs/cibil_qwen25_lora"
+OUTPUT_DIR = "outputs/cibil_qwen2.5_lora_v2"
 MAX_SEQ_LENGTH = 2048
 
 def main():

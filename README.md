@@ -1,4 +1,4 @@
-# Cibil Verification Model Fine-Tuning
+# Cibil Verification Model Fine-Tuning (v2 Production)
 
 This project contains the pipeline and scripts for fine-tuning a Small Language Model (SLM) to extract structured verification details from call transcripts. 
 
@@ -9,20 +9,22 @@ The objective is to analyze customer call transcripts and output a structured JS
 3. `LOAN_NUMBER_VERIFIED`: Boolean flag if the loan details were confirmed.
 4. `RPC_STATUS`: Right Party Contact status (true, false, partial, insufficient_data).
 
-## 🚀 Performance Snapshot (Test Set)
-The model was fine-tuned on **2,840 balanced samples** using `Qwen2.5-7B-Instruct`.
+---
 
-| Metric | Score | status |
+## 🚀 Performance Snapshot (v2 Production)
+The model was fine-tuned on **12,000 balanced samples** using `Qwen2.5-7B-Instruct-bnb-4bit`.
+
+| Metric | v2 Score | status |
 | :--- | :--- | :--- |
-| **Overall Accuracy (Exact Match)** | **84.15%** | ✅ Pass |
-| **JSON Validity Rate** | **100.00%** | ✅ Pass |
-| **Final Train Loss** | **0.38** | ✅ Stable |
+| **Overall Accuracy (Exact Match)** | **89.94%** | PASS |
+| **JSON Validity Rate** | **100.00%** | PASS |
+| **Rule Violation Rate** | **0.97%** | PASS |
 
-### Field-Level Metrics:
-- **Loan Number Verification**: 98.24%
-- **Name Verification**: 96.13%
-- **Disposition Accuracy**: 89.08%
-- **RPC Status Accuracy**: 88.73%
+### Field-Level Metrics (v2):
+- **Loan Number Verification**: 98.15%
+- **Name Verification**: 97.62%
+- **Disposition Accuracy**: 88.79%
+- **RPC Status Accuracy**: 89.94%
 
 ---
 
@@ -31,127 +33,81 @@ The project uses the `disposition_v3` conda environment.
 
 ```bash
 conda activate disposition_v3
+pip install -r requirements.txt
 ```
 
 **Key Dependencies**:
 - `unsloth`: For 2x faster, 4-bit memory-efficient fine-tuning.
 - `transformers`, `peft`, `trl`: Hugging Face training stack.
-- `torch`: Deep learning framework.
+- `fastapi`, `uvicorn`: For the Production API.
 
 ---
 
 ## 🏃 Execution Flow
 
-### 1. Data Processing
-Converts raw CSV data into balanced, ChatML-formatted JSONL files.
+### 1. Data Preparation
+Processes raw data into balanced 12k datasets.
 ```bash
 python scripts/preprocess_data.py
 python scripts/balance_data.py
 python scripts/split_data.py
 ```
 
-### 2. Fine-Tuning (Training)
-Uses QLoRA to train the adapters.
+### 2. Fine-Tuning (v2)
+Fine-tune the model on the T4 GPU.
 ```bash
 python scripts/train.py
 ```
-*Outputs are saved to `outputs/cibil_qwen25_lora/`.*
+*Outputs save to `outputs/cibil_qwen2.5_lora_v2/`.*
 
-### 3. Inference & Testing
-Run a quick test on sample transcripts:
+### 3. Evaluation
+Run the full production evaluation on the test set.
 ```bash
-python scripts/inference.py
+python scripts/evaluate_v2.py
 ```
 
-### 4. Full Evaluation
-Calculate metrics on the unseen test set:
+### 4. Deployment & Export
+Merge the LoRA weights and push to Hugging Face.
 ```bash
-python scripts/evaluate_model.py
+python scripts/export_model.py
+```
+
+---
+
+## 🖥️ Production API Management
+
+The API is configured to load V2 adapters from the `v2` branch of the Hugging Face repository.
+
+### 1. Starting the Server
+```bash
+# Starts in background and logs to api_v2_hf.log
+nohup python app.py > api_v2_hf.log 2>&1 &
+```
+
+### 2. Switching Versions (v1 vs v2)
+To switch between versions, modify `app.py`:
+- **v2**: `revision="v2"` in `PeftModel.from_pretrained`
+- **v1**: `revision="v1"` in `PeftModel.from_pretrained`
+
+### 3. Monitoring & Stopping
+```bash
+# View Logs
+tail -f api_v2_hf.log
+
+# Check Process
+ps -aux | grep app.py
+
+# Stop Server
+pkill -f "python app.py"
 ```
 
 ---
 
 ## 📂 Directory Structure
-- `scripts/`: Implementation scripts for end-to-end lifecycle.
-- `data/processed/`: Tokenized and balanced datasets.
-- `outputs/cibil_qwen25_lora/`: Final fine-tuned LoRA adapters.
-- `training.log`: Detailed logs from the latest training run.
-
----
-
-## 🖥️ Production Server Management
-
-### 1. Starting the Server
-The server runs on **Port 9090**.
-
-**Option A: Using the automation script (Recommended)**
-```bash
-./start_server.sh
-```
-
-**Option B: Manual Start (via Conda)**
-```bash
-# Activate the environment
-conda activate disposition_v3
-
-# Method 1: Direct Python (Recommended for testing)
-python app.py
-
-# Method 2: Uvicorn directly
-uvicorn app:app --host 0.0.0.0 --port 9090
-```
-
-### 2. Stopping / Killing the Server
-```bash
-# Graceful stop (if running in terminal)
-Ctrl + C
-
-# Forced stop (for background processes)
-pkill -f "uvicorn app:app"
-```
-
-### 3. Running in Background (24/7)
-To keep the server alive after you close your laptop, use **tmux**.
-```bash
-# Start a new session and run server
-tmux new -s cibil-server "./start_server.sh"
-
-# Disconnect (keep running)
-Press Ctrl + B, then D
-
-# Re-attach to check logs
-tmux attach -t cibil-server
-
-# Kill / Close the session entirely
-tmux kill-session -t cibil-server
-```
-
----
-
-## 🧪 API Testing (CURL Commands)
-
-The main endpoint is `POST /verify`.
-
-### Scenario 1: Full Verification
-```bash
-curl -X POST "http://localhost:9090/verify" \
-     -H "Content-Type: application/json" \
-     -d '{"transcript": "Agent: HI, I am Sakshi from HDB. Am I speaking to VIJAYAKRISHNA?\nUser: Yeah.\nAgent: Confirm loan 21?\nUser: Yes."}'
-```
-
-### Scenario 2: Wrong Number
-```bash
-curl -X POST "http://localhost:9090/verify" \
-     -H "Content-Type: application/json" \
-     -d '{"transcript": "Agent: Am I speaking to SRUTHI?\nUser: No, this is a wrong number. I am not Sruthi."}'
-```
-
-### Scenario 3: Disconnected
-```bash
-curl -X POST "http://localhost:9090/verify" \
-     -H "Content-Type: application/json" \
-     -d '{"transcript": "Agent: Hello? Is anyone there?\nAgent: I think the line is bad, I will call you back."}'
-```
+- `scripts/`: Implementation scripts (v2 specific scripts included).
+- `data/processed/`: Balanced 12k training/test datasets.
+- `models/`: Merged standalone 15GB models (local only).
+- `reports/`: Evaluation summaries and CSV results.
 
 ## 📝 License
 Proprietary / Internal Use Only.

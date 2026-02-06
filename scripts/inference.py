@@ -61,7 +61,7 @@ def main():
         else:
              model.load_adapter(args.lora)
     except Exception as e:
-        print(f"⚠️ Error loading adapters: {e}")
+        print(f"Error loading adapters: {e}")
         return
 
     print(f"\n--- Analyzing Transcript ---")
@@ -96,10 +96,10 @@ def main():
     # Robust JSON Validation
     prediction = extract_json(prediction_raw)
     if prediction:
-        print("\n✅ Status: Success (JSON Extracted)")
+        print("\nStatus: Success (JSON Extracted)")
         print(json.dumps(prediction, indent=2))
     else:
-        print("\n❌ Status: Failed (No valid JSON found in output)")
+        print("\nStatus: Failed (No valid JSON found in output)")
 
 if __name__ == "__main__":
     main()
