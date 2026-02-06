@@ -46,6 +46,7 @@ pip install -r requirements.txt
 ### 1. Data Preparation
 Processes raw data into balanced 12k datasets.
 ```bash
+conda activate disposition_v3
 python scripts/preprocess_data.py
 python scripts/balance_data.py
 python scripts/split_data.py
@@ -54,6 +55,7 @@ python scripts/split_data.py
 ### 2. Fine-Tuning (v2)
 Fine-tune the model on the GPU.
 ```bash
+conda activate disposition_v3
 python scripts/train.py
 ```
 *Outputs save to `outputs/cibil_qwen2.5_lora_v2/`.*
@@ -61,12 +63,14 @@ python scripts/train.py
 ### 3. Evaluation
 Run the full production evaluation on the test set.
 ```bash
+conda activate disposition_v3
 python scripts/evaluate_v2.py
 ```
 
 ### 4. Deployment & Export
 Merge the LoRA weights and push to Hugging Face.
 ```bash
+conda activate disposition_v3
 python scripts/export_model.py
 ```
 
@@ -85,6 +89,8 @@ The API runs on **Port 9090**. It is configured to load V2 adapters from the `v2
 #### Option A: TMUX (Recommended for live monitoring)
 TMUX ensures the API keeps running even if you disconnect from SSH, and allows you to "attach" to see logs live.
 ```bash
+conda activate disposition_v3
+
 # Create a new session and start the API
 tmux new -s cibil-v2 "python app.py"
 
@@ -97,6 +103,8 @@ tmux attach -t cibil-v2
 
 #### Option B: Normal Background (Standard nohup)
 ```bash
+conda activate disposition_v3
+
 # Start in background and redirect logs to a file
 nohup python app.py > api_v2_hf.log 2>&1 &
 ```
