@@ -29,11 +29,11 @@ The model was fine-tuned on **12,000 balanced samples** using `Qwen2.5-7B-Instru
 ---
 
 ## 🛠️ Environment Setup
-The project uses the `disposition_v3` conda environment.
+The project uses the `cibil_disposition` conda environment.
 
 ```bash
 # 1. Activate Environment
-conda activate disposition_v3
+conda activate cibil_disposition
 
 # 2. Install Dependencies
 pip install -r requirements.txt
@@ -46,7 +46,7 @@ pip install -r requirements.txt
 ### 1. Data Preparation
 Processes raw data into balanced 12k datasets.
 ```bash
-conda activate disposition_v3
+conda activate cibil_disposition
 python scripts/preprocess_data.py
 python scripts/balance_data.py
 python scripts/split_data.py
@@ -55,7 +55,7 @@ python scripts/split_data.py
 ### 2. Fine-Tuning (v2)
 Fine-tune the model on the GPU.
 ```bash
-conda activate disposition_v3
+conda activate cibil_disposition
 python scripts/train.py
 ```
 *Outputs save to `outputs/cibil_qwen2.5_lora_v2/`.*
@@ -63,14 +63,14 @@ python scripts/train.py
 ### 3. Evaluation
 Run the full production evaluation on the test set.
 ```bash
-conda activate disposition_v3
+conda activate cibil_disposition
 python scripts/evaluate_v2.py
 ```
 
 ### 4. Deployment & Export
 Merge the LoRA weights and push to Hugging Face.
 ```bash
-conda activate disposition_v3
+conda activate cibil_disposition
 python scripts/export_model.py
 ```
 
@@ -89,10 +89,10 @@ The API runs on **Port 9090**. It is configured to load V2 adapters from the `v2
 #### Option A: TMUX (Recommended for live monitoring)
 TMUX ensures the API keeps running even if you disconnect from SSH, and allows you to "attach" to see logs live.
 ```bash
-conda activate disposition_v3
+conda activate cibil_disposition
 
 # Create a new session and start the API
-tmux new -s cibil-v2 "python app.py"
+tmux new -s cibil-v2 "./start_server.sh"
 
 # To Detach (Leave it running in background): 
 # Press Ctrl + B, then press D
@@ -103,10 +103,10 @@ tmux attach -t cibil-v2
 
 #### Option B: Normal Background (Standard nohup)
 ```bash
-conda activate disposition_v3
+conda activate cibil_disposition
 
-# Start in background and redirect logs to a file
-nohup python app.py > api_v2_hf.log 2>&1 &
+# Start in background using the startup script
+nohup ./start_server.sh > api.log 2>&1 &
 ```
 
 ### 2. Monitoring & Troubleshooting
@@ -163,6 +163,85 @@ curl -X POST "http://localhost:9090/verify" \
 curl -X POST "http://localhost:9090/verify" \
      -H "Content-Type: application/json" \
      -d '{"transcript": "Agent: Am I speaking to RISHAL KAIBARTA?\nUser: No, I am his brother."}'
+```
+
+---
+
+## � Docker Deployment (Production)
+
+This project is fully containerized for easy deployment on any NVIDIA GPU server.
+
+### 1. Build & Run
+```bash
+# Build the image locally
+docker build -t cibil-api .
+
+# Run the container with GPU access and speed optimizations
+docker run --gpus all -d \
+  -p 9090:9090 \
+  --ipc=host \
+  --shm-size=1g \
+  -v ~/.cache/huggingface:/root/.cache/huggingface \
+  -v ~/.triton:/root/.triton \
+  --name cibil-production \
+  cibil-api
+```
+
+### 2. 🔄 Dynamic Versioning
+You can change the model or adapter version without rebuilding the image by using environment variables:
+
+```bash
+# Example: Run with v3 adapters
+docker run --gpus all -d -p 9090:9090 \
+  -e ADAPTERS_REVISION="v3" \
+  --name cibil-v3 cibil-api
+```
+
+- `ADAPTERS_REPO`: HuggingFace repository for adapters.
+- `ADAPTERS_REVISION`: Branch/Tag (e.g., `v2`, `v3`).
+
+### 3. 🚀 Sharing the Image
+
+#### Option A: Docker Hub (Recommended)
+```bash
+# Tag the local image
+docker tag cibil-api:latest khushianand28/cibil-api:v2.0
+
+# Push to your repository
+docker push khushianand28/cibil-api:v2.0
+
+# To run on another system:
+docker pull khushianand28/cibil-api:v2.0
+docker run --gpus all -d -p 9090:9090 --name cibil-api khushianand28/cibil-api:v2.0
+```
+
+#### Option B: Tar Archive
+```bash
+# Save to file
+docker save -o cibil-api.tar cibil-api
+
+# Load on new machine
+docker load -i cibil-api.tar
+```
+
+### 4. 🛬 Run on Another System
+If you have pushed the image to Docker Hub, anyone can run it on a new system with these two steps:
+
+**Step 1: Pull the image**
+```bash
+docker pull khushianand28/cibil-api:v2.0
+```
+
+**Step 2: Run it**
+```bash
+docker run --gpus all -d \
+  -p 9090:9090 \
+  --ipc=host \
+  --shm-size=1g \
+  -v ~/.cache/huggingface:/root/.cache/huggingface \
+  -v ~/.triton:/root/.triton \
+  --name cibil-production \
+  khushianand28/cibil-api:v2.0
 ```
 
 ---

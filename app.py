@@ -10,11 +10,12 @@ import json
 app = FastAPI(title="Cibil Verification API", version="2.0")
 
 # --- Configuration ---
-MODEL_NAME = "unsloth/Qwen2.5-7B-Instruct-bnb-4bit"
-ADAPTERS_REPO = "khushianand01/cibil-verification-qwen2.5-lora" 
-MAX_SEQ_LENGTH = 2048
+MODEL_NAME = os.getenv("MODEL_NAME", "unsloth/Qwen2.5-7B-Instruct-bnb-4bit")
+ADAPTERS_REPO = os.getenv("ADAPTERS_REPO", "khushianand01/cibil-verification-qwen2.5-lora")
+ADAPTERS_REVISION = os.getenv("ADAPTERS_REVISION", "v2")
+MAX_SEQ_LENGTH = int(os.getenv("MAX_SEQ_LENGTH", "2048"))
 dtype = None # Auto detection
-load_in_4bit = True
+load_in_4bit = os.getenv("LOAD_IN_4BIT", "True").lower() == "true"
 
 # Allowed Values Constants
 ALLOWED_DISPOSITIONS = {
@@ -144,13 +145,13 @@ async def startup_event():
         load_in_4bit = load_in_4bit,
     )
     
-    # Load and activate V2 adapters from your HF repo
-    print(f"Loading Adapters from {ADAPTERS_REPO} (branch: v2)...")
+    # Load and activate adapters from your HF repo
+    print(f"Loading Adapters from {ADAPTERS_REPO} (branch: {ADAPTERS_REVISION})...")
     from peft import PeftModel
-    model = PeftModel.from_pretrained(model, ADAPTERS_REPO, revision="v2")
+    model = PeftModel.from_pretrained(model, ADAPTERS_REPO, revision=ADAPTERS_REVISION)
     
     FastLanguageModel.for_inference(model) # Enable native 2x faster inference
-    print("V2 Production API Ready!")
+    print(f"{ADAPTERS_REVISION} Production API Ready!")
 
 @app.post("/verify")
 async def verify_transcript(request: VerificationRequest):

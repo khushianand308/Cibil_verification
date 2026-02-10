@@ -2,7 +2,7 @@
 
 # Activate the environment
 eval "$(conda shell.bash hook)"
-conda activate disposition_v3
+conda activate cibil_disposition
 
 # Run the server
 # --reload enables auto-restart when you change code (great for dev)
