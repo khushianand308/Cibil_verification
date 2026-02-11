@@ -1,4 +1,4 @@
-# Cibil Verification Model Fine-Tuning (v2 Production)
+# Cibil Verification Model Fine-Tuning (v2.1 Production)
 
 This project contains the pipeline and scripts for fine-tuning a Small Language Model (SLM) to extract structured verification details from call transcripts. 
 
