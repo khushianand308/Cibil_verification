@@ -268,3 +268,4 @@ This project includes a GitHub Actions workflow to automatically build and push 
     - `DOCKER_PASSWORD`: Your Docker Hub Personal Access Token (PAT).
 
 Now, every time you push to the `main` branch, the image will be automatically updated on Docker Hub.
+ 
