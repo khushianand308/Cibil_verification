@@ -255,3 +255,16 @@ docker run --gpus all -d \
 
 ## 📝 License
 Proprietary / Internal Use Only.
+
+---
+
+## ⚙️ CI/CD Setup (GitHub Actions)
+This project includes a GitHub Actions workflow to automatically build and push the Docker image to Docker Hub.
+
+### To enable automated pushes:
+1.  Go to your GitHub Repository **Settings** > **Secrets and variables** > **Actions**.
+2.  Add the following **Repository secrets**:
+    - `DOCKER_USERNAME`: Your Docker Hub username (`khushianand28`).
+    - `DOCKER_PASSWORD`: Your Docker Hub Personal Access Token (PAT).
+
+Now, every time you push to the `main` branch, the image will be automatically updated on Docker Hub.
