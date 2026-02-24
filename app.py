@@ -219,9 +219,20 @@ async def process_single_transcript(transcript_input):
         return {"error": "Failed to parse JSON", "raw_output": prediction_raw}
 
 if __name__ == "__main__":
-    # Get worker count from environment for concurrency scaling
-    # Default to 1 (safe). For 16GB VRAM, 2 workers is the recommended max.
+    # For 16GB VRAM, 1 heavy worker is safest for queueing stability.
     workers = int(os.getenv("WORKERS", "1"))
     
     print(f"Starting server on port 5000 with {workers} worker(s)...")
-    uvicorn.run("app:app", host="0.0.0.0", port=5000, workers=workers)
+    print("Queueing enabled: Up to 30 concurrent connections supported.")
+    
+    # backlog=2048: Allows a large queue of waiting connections.
+    # timeout_keep_alive=120: Prevents disconnects during long generations.
+    uvicorn.run(
+        "app:app", 
+        host="0.0.0.0", 
+        port=5000, 
+        workers=workers,
+        backlog=2048,
+        timeout_keep_alive=120,
+        timeout_graceful_shutdown=120
+    )
