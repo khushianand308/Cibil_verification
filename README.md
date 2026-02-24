@@ -1,120 +1,50 @@
-# Cibil Verification API (Production)
+# Cibil Verification API: Production Commands
 
-This repository contains the production-ready Cibil Verification API, powered by a fine-tuned Qwen2.5-7B model (Unsloth/4-bit) specifically optimized for Indian financial context.
+### 🐳 Docker Commands (Recommended)
+This is the easiest way to run the API with GPUs and auto-restart.
 
----
-
-## 🚀 Quick Start (Production)
-
-### 1. Start the API
-Runs the container in the background with GPU support and auto-restart.
+**Start API**:
 ```bash
-docker run --gpus all -d \
-  -p 9090:9090 \
-  --restart unless-stopped \
-  --ipc=host \
-  --shm-size=1g \
-  -v ~/.cache/huggingface:/root/.cache/huggingface \
-  --name cibil-production \
-  khushianand28/cibil-api:latest
+docker run --gpus all -d -p 9090:9090 --restart unless-stopped --name cibil-production khushianand28/cibil-api:latest
 ```
 
-### 2. Stop/Remove the API
+**Stop API**:
 ```bash
-docker stop cibil-production
-docker rm cibil-production
+docker stop cibil-production && docker rm cibil-production
 ```
 
----
-
-## 🔄 CI/CD/CD Pipeline (Automation)
-
-The project uses a fully automated pipeline via **GitHub Actions**.
-
-### How it works:
-1.  **Push to `main`**: Any code change pushed to the `main` branch triggers the pipeline.
-2.  **Build**: GitHub builds a new Docker image (clearing space on the runner automatically).
-3.  **Push**: The image is pushed to **Docker Hub** (`khushianand28/cibil-api:latest`).
-4.  **Deploy**: GitHub logs into the production server via **SSH** and runs the update script.
-5.  **Purge**: Old/unused Docker images are automatically deleted from the server to save disk space.
-
-### Manual Update (If needed):
-If you want to pull the latest image from the cloud manually:
-```bash
-docker pull khushianand28/cibil-api:latest
-# Then restart following the "Start the API" command above.
-```
-
-### Batch Processing (Multiple Transcripts)
-Use this endpoint if you have a JSON file or list containing many transcripts.
-
-**Endpoint**: `POST /verify-batch`  
-**Payload**:
-```json
-{
-  "transcripts": [
-    { "interaction_transcript": [...] },
-    { "interaction_transcript": [...] }
-  ]
-}
-```
-
----
-
-## 🛠️ Management & Monitoring
-
-### Check Logs (Real-time)
+**Check Logs**:
 ```bash
 docker logs -f cibil-production
 ```
 
-### Check GPU & Health
+---
+
+### 🐍 Python Commands (Local)
+If you want to run the script directly on the server host and make it run "forever":
+
+**Start API (Background/Forever)**:
 ```bash
-nvidia-smi
-docker stats cibil-production
+nohup python3 app.py > api.log 2>&1 &
 ```
 
-### Disk Cleanup (Manual Purge)
+**Stop API**:
 ```bash
-docker image prune -af
+pkill -f "python3 app.py"
 ```
 
 ---
 
-## 📡 API Usage
+### 🚀 CI/CD Automation
+The pipeline script is located at: `.github/workflows/docker-publish.yml`
 
-### Input Format (Structured JSON)
-The API accepts the standard interaction transcript format.
-
-**Endpoint**: `POST /verify`  
-**Payload**:
-```json
-{
-  "transcript": {
-    "interaction_transcript": [
-      {"role": "agent", "en_text": "Am I speaking to Shaik?"},
-      {"role": "user", "en_text": "Yes, speaking."}
-    ]
-  }
-}
-```
-
-### Output Format (camelCase)
-```json
-{
-  "disposition": "ANSWERED",
-  "loanNumberVerified": true,
-  "nameVerified": true,
-  "rpcStatus": "true"
-}
-```
+*Pushing to the **main** branch automatically builds, pushes to Docker Hub, and restarts the server.*
 
 ---
 
-## 🛡️ Required Secrets (GitHub)
-To maintain the pipeline, these secrets must be set in GitHub Actions:
-- `DOCKER_USERNAME`: `khushianand28`
-- `DOCKER_PASSWORD`: Docker Hub Token
-- `SSH_HOST`: Server IP
-- `SSH_USERNAME`: `ubuntu`
-- `SSH_PRIVATE_KEY`: ED25519 Private Key
+### 📡 Test Commands
+
+**Batch Test (Multiple Transcripts)**:
+```bash
+curl -X POST "http://localhost:9090/verify-batch" -H "Content-Type: application/json" -d '{"transcripts": [{"interaction_transcript": [{"role": "agent", "en_text": "Hello?"}]}]}'
+```
