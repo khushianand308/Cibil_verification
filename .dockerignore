@@ -1,0 +1,16 @@
+# Exclude training and data folders from Docker image
+data/
+scripts/
+reports/
+__pycache__/
+*.log
+.git/
+.github/
+unsloth_compiled_cache/
+.ipynb_checkpoints/
+*.ipynb
+unsloth.log
+*.json
+!requirements.txt
+!batch_test_real.json
+!batch_test.json
