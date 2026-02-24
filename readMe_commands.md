@@ -47,6 +47,19 @@ docker system prune -af
 
 ---
 
+### 🚀 Manual CI/CD Deployment
+Since automatic triggers are disabled, follow these steps to deploy a new version:
+
+1.  Go to your GitHub Repository.
+2.  Click on the **Actions** tab.
+3.  Select **"Build and Push Docker Image"** from the sidebar.
+4.  Click the **"Run workflow"** button on the right.
+5.  Select the `main` branch and click **Run workflow**.
+
+*This will automatically build, push to Docker Hub, and restart the API on your server.*
+
+---
+
 ### 🧪 API Batch Test
 **Test Command**:
 ```bash
