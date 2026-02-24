@@ -1,19 +1,21 @@
 # Production & Development Commands
 
 ### 🐳 Docker (Production)
-Run the API with GPU support and auto-restart.
+Run the API with GPU support and auto-restart using the production image.
 
-**Start Container**:
+**Image**: `khushianand28/cibil-api:latest`
+
+**Start API**:
 ```bash
 docker run --gpus all -d -p 9090:9090 --restart unless-stopped --ipc=host --shm-size=1g -v ~/.cache/huggingface:/root/.cache/huggingface --name cibil-production khushianand28/cibil-api:latest
 ```
 
-**Stop & Remove**:
+**Stop & Remove API**:
 ```bash
 docker stop cibil-production && docker rm cibil-production
 ```
 
-**View Logs**:
+**View Live Logs**:
 ```bash
 docker logs -f cibil-production
 ```
@@ -21,7 +23,7 @@ docker logs -f cibil-production
 ---
 
 ### 🐍 Python (Forever/Background)
-Run the API directly on the host using `nohup`.
+Run the API directly on the host host using `nohup`.
 
 **Start Forever**:
 ```bash
@@ -35,11 +37,18 @@ pkill -f "python3 app.py"
 
 ---
 
-### 🚀 CI/CD Maintenance (Manual)
-The pipeline is located at `.github/workflows/docker-publish.yml`. 
-*Manual trigger is enabled on GitHub Actions.*
+### 🚀 Maintenance (Old Image Cleanup)
+To delete old images and save disk space, run this command regularly:
 
-**Purge Old Images**:
+**Purge Everything (Old containers/images)**:
 ```bash
-docker image prune -af
+docker system prune -af
+```
+
+---
+
+### 🧪 API Batch Test
+**Test Command**:
+```bash
+curl -X POST "http://localhost:9090/verify-batch" -H "Content-Type: application/json" --data-binary @batch_test_real.json
 ```
