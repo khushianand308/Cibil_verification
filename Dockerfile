@@ -1,33 +1,26 @@
-# Use Ubuntu 22.04 based CUDA image (has GLIBC 2.35)
-FROM nvidia/cuda:12.1.1-cudnn8-devel-ubuntu22.04
+# Use minimal Python 3.10 slim image
+FROM python:3.10-slim
 
 # 1. SETTINGS
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
-    CUDA_HOME=/usr/local/cuda \
     DEBIAN_FRONTEND=noninteractive
 
 WORKDIR /app
 
-# 2. SYSTEM DEPENDENCIES: Install Python 3.10 and git
+# 2. SYSTEM DEPENDENCIES: Minimal tools for pip installations
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    python3.10 \
-    python3.10-dev \
-    python3-pip \
     git \
+    build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-# Set python3.10 as default
-RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.10 1 \
-    && update-alternatives --set python3 /usr/bin/python3.10 \
-    && python3 -m pip install --upgrade pip setuptools wheel
-
-# 3. CONSOLIDATED AI STACK: Precise versions from your working host environment
-# Installing everything in one go ensures binary compatibility for 'nms'
-RUN pip install --no-cache-dir \
-    torch==2.10.0 torchvision==0.25.0 torchaudio
-
-RUN pip install --no-cache-dir \
+# 3. AI STACK: Runtime libraries include CUDA support in wheels
+# Consolidating to minimize layers
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
+    pip install --no-cache-dir \
+    torch==2.10.0 \
+    torchvision==0.25.0 \
+    torchaudio \
     "transformers==4.57.6" \
     "peft==0.18.1" \
     "trl==0.24.0" \
@@ -37,8 +30,12 @@ RUN pip install --no-cache-dir \
 
 # 4. PROJECT REQUIREMENTS
 COPY requirements.txt .
-# Remove unsloth from requirements to prevent conflict with our manual install
-RUN sed -i '/unsloth/d' requirements.txt && \
+# Remove items already installed in the stack above to save time
+RUN sed -i '/torch/d' requirements.txt && \
+    sed -i '/transformers/d' requirements.txt && \
+    sed -i '/peft/d' requirements.txt && \
+    sed -i '/accelerate/d' requirements.txt && \
+    sed -i '/bitsandbytes/d' requirements.txt && \
     pip install --no-cache-dir "numpy<2" && \
     pip install --no-cache-dir -r requirements.txt && \
     pip install --no-cache-dir \
@@ -49,6 +46,9 @@ RUN sed -i '/unsloth/d' requirements.txt && \
 COPY . .
 
 # 6. RUNTIME CONFIG
-EXPOSE 9090
+EXPOSE 5000
 
-CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "9090"]
+# Default to 1 worker for safety. 2 workers recommended for 16GB VRAM.
+ENV WORKERS=1
+
+CMD ["python3", "app.py"]

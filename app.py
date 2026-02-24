@@ -219,4 +219,9 @@ async def process_single_transcript(transcript_input):
         return {"error": "Failed to parse JSON", "raw_output": prediction_raw}
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=9090)
+    # Get worker count from environment for concurrency scaling
+    # Default to 1 (safe). For 16GB VRAM, 2 workers is the recommended max.
+    workers = int(os.getenv("WORKERS", "1"))
+    
+    print(f"Starting server on port 5000 with {workers} worker(s)...")
+    uvicorn.run("app:app", host="0.0.0.0", port=5000, workers=workers)
