@@ -3,7 +3,7 @@ import torch
 import uvicorn
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from typing import Union, Any
+from typing import Union, Any, List
 from unsloth import FastLanguageModel
 import json
 
@@ -39,6 +39,9 @@ tokenizer = None
 
 class VerificationRequest(BaseModel):
     transcript: Union[str, dict, list, Any]
+
+class BatchVerificationRequest(BaseModel):
+    transcripts: List[Union[str, dict, list, Any]]
 
 def format_transcript(transcript_input):
     """Converts raw JSON or text into readable 'Role: Content' format."""
@@ -164,11 +167,24 @@ async def startup_event():
 
 @app.post("/verify")
 async def verify_transcript(request: VerificationRequest):
+    return await process_single_transcript(request.transcript)
+
+@app.post("/verify-batch")
+async def verify_batch(request: BatchVerificationRequest):
+    """Processes a list of transcripts sequentially."""
+    results = []
+    for transcript_data in request.transcripts:
+        result = await process_single_transcript(transcript_data)
+        results.append(result)
+    return results
+
+async def process_single_transcript(transcript_input):
+    """Helper to process a single transcript through the model."""
     if not model or not tokenizer:
         raise HTTPException(status_code=503, detail="Model is not loaded yet.")
 
     # Apply Transcript Preprocessing (Cleaning)
-    processed_transcript = format_transcript(request.transcript)
+    processed_transcript = format_transcript(transcript_input)
 
     messages = [
         {"role": "system", "content": "You are an expert utility agent for CIBIL verification analysis. Extract the disposition and verification details from the transcript. Return ONLY valid JSON."},
