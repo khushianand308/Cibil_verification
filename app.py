@@ -3,6 +3,7 @@ import torch
 import uvicorn
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
+from typing import Union, Any
 from unsloth import FastLanguageModel
 import json
 
@@ -37,41 +38,48 @@ model = None
 tokenizer = None
 
 class VerificationRequest(BaseModel):
-    transcript: str
+    transcript: Union[str, dict, list, Any]
 
 def format_transcript(transcript_input):
     """Converts raw JSON or text into readable 'Role: Content' format."""
     try:
-        # Parse if string
-        if isinstance(transcript_input, str) and (transcript_input.strip().startswith(("{", "["))):
-            data = json.loads(transcript_input)
+        # 1. Parse string to JSON if needed
+        if isinstance(transcript_input, str):
+            cleaned_input = transcript_input.strip()
+            if cleaned_input.startswith(("{", "[")):
+                data = json.loads(cleaned_input)
+            else:
+                return transcript_input # Return raw text
         else:
             data = transcript_input
             
-        # Extract the list if it's inside a dictionary
+        # 2. Extract transcript list
         if isinstance(data, dict):
+            # Check for specific 'interaction_transcript' key
             transcript_list = data.get('interaction_transcript', [])
+            if not transcript_list and not any(k in data for k in ['interaction_transcript']):
+                 # Fallback for other standard dict formats
+                 transcript_list = data.get('transcript', [])
         elif isinstance(data, list):
             transcript_list = data
         else:
-            return transcript_input # Fallback to raw
+            return str(transcript_input)
 
-        # Check if list is valid
-        if not isinstance(transcript_list, list):
-            return transcript_input
-        
-        # Build dialogue
+        # 3. Build dialogue
         dialogue = []
         for turn in transcript_list:
             if not isinstance(turn, dict):
                 continue
             role = turn.get('role', 'unknown').capitalize()
-            text = turn.get('en_text', '')
-            dialogue.append(f"{role}: {text}")
+            # Support both 'en_text' (new format) and 'text' (old format)
+            text = turn.get('en_text', turn.get('text', ''))
+            if text:
+                dialogue.append(f"{role}: {text}")
         
-        return "\n".join(dialogue)
-    except:
-        return transcript_input # Return raw if parsing fails
+        return "\n".join(dialogue) if dialogue else str(transcript_input)
+    except Exception as e:
+        print(f"Transcript formatting error: {e}")
+        return str(transcript_input)
 
 def clean_and_validate_analysis(data):
     """Enforces business rules and standardizes output (Dict version of preprocess logic)."""
@@ -111,14 +119,15 @@ def clean_and_validate_analysis(data):
             data['NAME_VERIFIED'] = False
             data['LOAN_NUMBER_VERIFIED'] = False
 
-        # 5. Build cleaned response
+        # 5. Build cleaned response (camelCase for Production)
         return {
-            "DISPOSITION": data['DISPOSITION'],
-            "LOAN_NUMBER_VERIFIED": data['LOAN_NUMBER_VERIFIED'],
-            "NAME_VERIFIED": data['NAME_VERIFIED'],
-            "RPC_STATUS": data['RPC_STATUS']
+            "disposition": data['DISPOSITION'],
+            "loanNumberVerified": data['LOAN_NUMBER_VERIFIED'],
+            "nameVerified": data['NAME_VERIFIED'],
+            "rpcStatus": data['RPC_STATUS']
         }
-    except:
+    except Exception as e:
+        print(f"Validation error: {e}")
         return data
 
 def extract_json(text):
