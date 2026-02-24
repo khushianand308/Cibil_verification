@@ -45,6 +45,20 @@ docker pull khushianand28/cibil-api:latest
 # Then restart following the "Start the API" command above.
 ```
 
+### Batch Processing (Multiple Transcripts)
+Use this endpoint if you have a JSON file or list containing many transcripts.
+
+**Endpoint**: `POST /verify-batch`  
+**Payload**:
+```json
+{
+  "transcripts": [
+    { "interaction_transcript": [...] },
+    { "interaction_transcript": [...] }
+  ]
+}
+```
+
 ---
 
 ## 🛠️ Management & Monitoring
