@@ -77,8 +77,11 @@ jobs:
           username: ${{ secrets.SSH_USERNAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            # 1. Pull the absolute latest image
-            docker pull khushianand28/cibil-api:latest
+            # Determine the correct tag
+            TAG=${{ github.event.inputs.type == 'vllm' && 'vllm-alpha' || 'latest' }}
+            
+            # 1. Pull the selected image
+            docker pull khushianand28/cibil-api:$TAG
             
             # 2. Stop and Remove the current container (if exists)
             docker stop cibil-production || true
@@ -92,7 +95,7 @@ jobs:
               --shm-size=1g \
               -v ~/.cache/huggingface:/root/.cache/huggingface \
               --name cibil-production \
-              khushianand28/cibil-api:latest
+              khushianand28/cibil-api:$TAG
             
             # 4. Cleanup (Purge) old/unused images to save space
             docker image prune -af
