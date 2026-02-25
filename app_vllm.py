@@ -87,7 +87,7 @@ async def generate_vllm(transcript_text: str):
     return final_output.outputs[0].text
 
 def format_transcript(transcript_input):
-    """Converts raw JSON or text into readable 'Role: Content' format. (From app.py)"""
+    """Robust transcript formatter that handles dict, list, and raw string."""
     try:
         if isinstance(transcript_input, str):
             cleaned_input = transcript_input.strip()
@@ -98,10 +98,9 @@ def format_transcript(transcript_input):
         else:
             data = transcript_input
             
+        # Extract interaction_transcript if nested
         if isinstance(data, dict):
-            transcript_list = data.get('interaction_transcript', [])
-            if not transcript_list:
-                 transcript_list = data.get('transcript', [])
+            transcript_list = data.get('interaction_transcript') or data.get('transcript') or []
         elif isinstance(data, list):
             transcript_list = data
         else:
@@ -110,8 +109,9 @@ def format_transcript(transcript_input):
         dialogue = []
         for turn in transcript_list:
             if not isinstance(turn, dict): continue
-            role = turn.get('role', 'unknown').capitalize()
-            text = turn.get('en_text', turn.get('text', ''))
+            # Handle variations in role/text keys
+            role = (turn.get('role') or "unknown").capitalize()
+            text = turn.get('en_text') or turn.get('text') or ""
             if text: dialogue.append(f"{role}: {text}")
         
         return "\n".join(dialogue) if dialogue else str(transcript_input)
@@ -119,51 +119,57 @@ def format_transcript(transcript_input):
         return str(transcript_input)
 
 def clean_and_validate_analysis(data):
-    """Enforces business rules and standardizes output (Robust version)."""
+    """Hyper-robust logic to standardize model output regardless of training drift."""
     try:
-        # 1. Standardize DISPOSITION (Check both AllCaps and CamelCase)
-        raw_disp = str(data.get('DISPOSITION') or data.get('Disposition') or "").upper().replace(" ", "_").strip()
+        # Helper for case-insensitive lookup
+        def get_val(d, *keys):
+            for k in keys:
+                # Direct check
+                if k in d: return d[k]
+                # Case-insensitive check
+                for dk in d.keys():
+                    if dk.lower() == k.lower(): return d[dk]
+            return None
+
+        # 1. Standardize DISPOSITION
+        raw_disp = str(get_val(data, 'DISPOSITION', 'disposition') or "").upper().replace(" ", "_").strip()
         
-        if raw_disp == "WRONG_NUMBER" or "WRONG" in raw_disp: raw_disp = "WRONG_NUMBER"
-        elif raw_disp == "DISCONNECTED_WITH_CONVERSATION": pass
+        if "WRONG" in raw_disp: raw_disp = "WRONG_NUMBER"
         elif "DISCONNECTED" in raw_disp: 
             if "WITHOUT" in raw_disp: raw_disp = "DISCONNECTED_WITHOUT_CONVERSATION"
-            elif "WITH" in raw_disp: raw_disp = "DISCONNECTED_WITH_CONVERSATION"
-            else: raw_disp = "CALL_DROPPED"
+            else: raw_disp = "DISCONNECTED_WITH_CONVERSATION"
         
         if raw_disp not in ALLOWED_DISPOSITIONS:
              raw_disp = "ANSWERED"
         
-        data['DISPOSITION'] = raw_disp
-
         # 2. Standardize RPC_STATUS
-        raw_rpc = str(data.get('RPC_STATUS') or data.get('RPC_Status') or data.get('rpcStatus') or "").lower().strip()
-        if "true" in raw_rpc: data['RPC_STATUS'] = "true"
-        elif "false" in raw_rpc: data['RPC_STATUS'] = "false"
-        elif raw_rpc in ALLOWED_RPC_STATUS:
-            data['RPC_STATUS'] = raw_rpc
-        else:
-            data['RPC_STATUS'] = "insufficient_data"
+        raw_rpc = str(get_val(data, 'RPC_STATUS', 'rpcStatus', 'rpc_status') or "").lower().strip()
+        if "true" in raw_rpc: res_rpc = "true"
+        elif "false" in raw_rpc: res_rpc = "false"
+        elif raw_rpc in ALLOWED_RPC_STATUS: res_rpc = raw_rpc
+        else: res_rpc = "insufficient_data"
 
-        # 3. Clean Booleans & Handle Nested Verification_Details if present
-        v_details = data.get("Verification_Details", {}) if isinstance(data.get("Verification_Details"), dict) else {}
+        # 3. Handle Nested Verification_Details if model emits them (found in some merged versions)
+        v_details = get_val(data, 'Verification_Details', 'verification_details') or {}
+        if not isinstance(v_details, dict): v_details = {}
         
-        name_v = data.get('NAME_VERIFIED') or data.get('Name_Verified') or v_details.get('Name_Verified') or v_details.get('Customer_Name')
-        loan_v = data.get('LOAN_NUMBER_VERIFIED') or data.get('Loan_Number_Verified') or v_details.get('Loan_Number_Verified') or v_details.get('Loan_Number_Last_Four_Digits')
+        # 4. Clean Booleans
+        name_v = get_val(data, 'NAME_VERIFIED', 'nameVerified') or get_val(v_details, 'Name_Verified', 'Customer_Name', 'Name')
+        loan_v = get_val(data, 'LOAN_NUMBER_VERIFIED', 'loanNumberVerified') or get_val(v_details, 'Loan_Number_Verified', 'Loan_Number_Last_Four_Digits', 'Loan_ID')
 
-        data['LOAN_NUMBER_VERIFIED'] = bool(loan_v)
-        data['NAME_VERIFIED'] = bool(name_v)
+        name_v = bool(name_v)
+        loan_v = bool(loan_v)
 
-        # 4. Consistency Shield
-        if data['DISPOSITION'] == "WRONG_NUMBER":
-            data['NAME_VERIFIED'] = False
-            data['LOAN_NUMBER_VERIFIED'] = False
+        # 5. Consistency Shield
+        if raw_disp == "WRONG_NUMBER":
+            name_v = False
+            loan_v = False
 
         return {
-            "disposition": data['DISPOSITION'],
-            "loanNumberVerified": data['LOAN_NUMBER_VERIFIED'],
-            "nameVerified": data['NAME_VERIFIED'],
-            "rpcStatus": data['RPC_STATUS']
+            "disposition": raw_disp,
+            "loanNumberVerified": loan_v,
+            "nameVerified": name_v,
+            "rpcStatus": res_rpc
         }
     except Exception:
         return data
