@@ -1,7 +1,7 @@
 import os
 import torch
 import uvicorn
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from pydantic import BaseModel
 from typing import Union, Any, List
 from unsloth import FastLanguageModel
@@ -166,8 +166,19 @@ async def startup_event():
     print(f"{ADAPTERS_REVISION} Production API Ready!")
 
 @app.post("/verify")
-async def verify_transcript(request: VerificationRequest):
-    return await process_single_transcript(request.transcript)
+async def verify_transcript(request: Request):
+    try:
+        data = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON format")
+    
+    # Fully backwards compatible: Check if payload holds exactly one 'transcript' key
+    if isinstance(data, dict) and "transcript" in data and len(data) == 1:
+        transcript_data = data["transcript"]
+    else:
+        transcript_data = data
+        
+    return await process_single_transcript(transcript_data)
 
 @app.post("/verify-batch")
 async def verify_batch(request: BatchVerificationRequest):
