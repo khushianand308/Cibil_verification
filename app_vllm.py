@@ -48,7 +48,7 @@ ALLOWED_RPC_STATUS = {
 }
 
 class VerificationRequest(BaseModel):
-    transcript: str
+    transcript: Union[str, dict, list, Any]
 
 class TranscriptLine(BaseModel):
     role: str
@@ -73,7 +73,7 @@ async def generate_vllm(transcript_text: str):
 
     request_id = random_uuid()
     sampling_params = SamplingParams(
-        temperature=0.1,
+        temperature=0.0, # Greedy (Matches app.py do_sample=False)
         max_tokens=MAX_OUTPUT_TOKENS,
         stop=["<|endoftext|>", "###", "<|im_end|>"]
     )
@@ -119,12 +119,12 @@ def format_transcript(transcript_input):
         return str(transcript_input)
 
 def clean_and_validate_analysis(data):
-    """Enforces business rules and standardizes output (Matches app.py)."""
+    """Enforces business rules and standardizes output (Robust version)."""
     try:
-        # 1. Standardize DISPOSITION
-        raw_disp = str(data.get('DISPOSITION', '')).upper().replace(" ", "_")
+        # 1. Standardize DISPOSITION (Check both AllCaps and CamelCase)
+        raw_disp = str(data.get('DISPOSITION') or data.get('Disposition') or "").upper().replace(" ", "_").strip()
         
-        if raw_disp == "WRONG_NUMBER": pass
+        if raw_disp == "WRONG_NUMBER" or "WRONG" in raw_disp: raw_disp = "WRONG_NUMBER"
         elif raw_disp == "DISCONNECTED_WITH_CONVERSATION": pass
         elif "DISCONNECTED" in raw_disp: 
             if "WITHOUT" in raw_disp: raw_disp = "DISCONNECTED_WITHOUT_CONVERSATION"
@@ -137,17 +137,22 @@ def clean_and_validate_analysis(data):
         data['DISPOSITION'] = raw_disp
 
         # 2. Standardize RPC_STATUS
-        raw_rpc = str(data.get('RPC_STATUS', '')).lower()
-        if raw_rpc == "true": data['RPC_STATUS'] = "true"
-        elif raw_rpc == "false": data['RPC_STATUS'] = "false"
+        raw_rpc = str(data.get('RPC_STATUS') or data.get('RPC_Status') or data.get('rpcStatus') or "").lower().strip()
+        if "true" in raw_rpc: data['RPC_STATUS'] = "true"
+        elif "false" in raw_rpc: data['RPC_STATUS'] = "false"
         elif raw_rpc in ALLOWED_RPC_STATUS:
             data['RPC_STATUS'] = raw_rpc
         else:
             data['RPC_STATUS'] = "insufficient_data"
 
-        # 3. Clean Booleans
-        data['LOAN_NUMBER_VERIFIED'] = bool(data.get('LOAN_NUMBER_VERIFIED', False))
-        data['NAME_VERIFIED'] = bool(data.get('NAME_VERIFIED', False))
+        # 3. Clean Booleans & Handle Nested Verification_Details if present
+        v_details = data.get("Verification_Details", {}) if isinstance(data.get("Verification_Details"), dict) else {}
+        
+        name_v = data.get('NAME_VERIFIED') or data.get('Name_Verified') or v_details.get('Name_Verified') or v_details.get('Customer_Name')
+        loan_v = data.get('LOAN_NUMBER_VERIFIED') or data.get('Loan_Number_Verified') or v_details.get('Loan_Number_Verified') or v_details.get('Loan_Number_Last_Four_Digits')
+
+        data['LOAN_NUMBER_VERIFIED'] = bool(loan_v)
+        data['NAME_VERIFIED'] = bool(name_v)
 
         # 4. Consistency Shield
         if data['DISPOSITION'] == "WRONG_NUMBER":
