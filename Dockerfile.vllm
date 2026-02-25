@@ -1,0 +1,23 @@
+# Use official vLLM image as base
+FROM vllm/vllm-openai:latest
+
+WORKDIR /app
+
+# Install only minimal API dependencies (fastapi already in base)
+COPY requirements.txt .
+RUN pip install --no-cache-dir httpx pydantic
+
+# Copy the vLLM application code
+COPY app_vllm.py .
+
+# Create models directory (we will host-mount the merged model here)
+RUN mkdir -p /app/models
+
+# Expose Port 5000
+EXPOSE 5000
+
+# Reset entrypoint to ignore the base image's default vllm command
+ENTRYPOINT []
+
+# Run the vLLM API
+CMD ["python3", "app_vllm.py"]
