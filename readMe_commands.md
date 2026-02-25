@@ -1,21 +1,3 @@
-### 🚀 vLLM High-Throughput (Port 5000)
-Run the extremely fast inference engine (100+ concurrent requests, ~165 RPM).
-
-**Image**: `khushianand28/cibil-api:vllm-alpha`
-
-**Start vLLM Engine**:
-```bash
-docker run --gpus all -d \
-  -p 5000:5000 \
-  --restart unless-stopped \
-  --ipc=host \
-  --shm-size=1g \
-  -v ~/Cibil_verification/models:/app/models \
-  --name cibil-production khushianand28/cibil-api:vllm-alpha
-```
-
----
-
 ### 🐳 Standard API (Port 5000)
 Run the original reliable production API (30 RPM).
 

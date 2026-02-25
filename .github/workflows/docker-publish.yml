@@ -1,20 +1,10 @@
 name: Build and Push Docker Image
 
-# on:
-#   push:
-#     branches:
-#       - main
 on:
+  push:
+    branches:
+      - main
   workflow_dispatch:
-    inputs:
-      type:
-        description: 'Image Type (Standard or vLLM)'
-        required: true
-        default: 'vllm'
-        type: choice
-        options:
-          - standard
-          - vllm
 
 jobs:
   build-and-push:
@@ -46,7 +36,7 @@ jobs:
         with:
           images: khushianand28/cibil-api
           tags: |
-            type=raw,value=${{ github.event.inputs.type == 'vllm' && 'vllm-alpha' || 'latest' }}
+            type=raw,value=latest
             type=sha,format=short
 
       - name: Set up QEMU
@@ -59,7 +49,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: ${{ github.event.inputs.type == 'vllm' && 'Dockerfile.vllm' || 'Dockerfile' }}
+          file: Dockerfile
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
@@ -77,18 +67,14 @@ jobs:
           username: ${{ secrets.SSH_USERNAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            # Determine the correct tag
-            TAG=${{ github.event.inputs.type == 'vllm' && 'vllm-alpha' || 'latest' }}
-            
             # 1. Pull the selected image
-            docker pull khushianand28/cibil-api:$TAG
+            docker pull khushianand28/cibil-api:latest
             
             # 2. Stop and Remove the current container (if exists)
             docker stop cibil-production || true
             docker rm cibil-production || true
             
             # 3. Run the new version with GPU support (Port 5000)
-            # vLLM requires the merged model; we mount the local models directory if Tag is vllm-alpha
             docker run --gpus all -d \
               -p 5000:5000 \
               --restart unless-stopped \
@@ -97,7 +83,7 @@ jobs:
               -v ~/.cache/huggingface:/root/.cache/huggingface \
               -v ~/Cibil_verification/models:/app/models \
               --name cibil-production \
-              khushianand28/cibil-api:$TAG
+              khushianand28/cibil-api:latest
             
             # 4. Cleanup (Purge) old/unused images to save space
             docker image prune -af

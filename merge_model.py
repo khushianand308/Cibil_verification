@@ -20,7 +20,6 @@ def merge_and_save():
     )
 
     print("Merging adapters into 4-bit standalone model...")
-    # Use merged_4bit_forced for vLLM compatibility
     model.save_pretrained_merged(SAVE_PATH, tokenizer, save_method = "merged_4bit_forced")
     print(f"Success! Optimized 4-bit model saved to: {SAVE_PATH}")
 
