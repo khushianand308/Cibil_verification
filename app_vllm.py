@@ -164,8 +164,8 @@ def parse_llm_json(raw_text: str, transcript_text: str = ""):
 
         intermediate = {
             "disposition": data_raw.get("DISPOSITION") or data_raw.get("Disposition"),
-            "nameVerified": data_raw.get("NAME_VERIFIED") or v_details.get("Name") or v_details.get("Name_Verified"),
-            "loanNumberVerified": data_raw.get("LOAN_NUMBER_VERIFIED") or v_details.get("Loan_Number") or v_details.get("Loan_Number_Verified"),
+            "nameVerified": data_raw.get("NAME_VERIFIED") or v_details.get("Name") or v_details.get("Name_Verified") or v_details.get("Customer_Name"),
+            "loanNumberVerified": data_raw.get("LOAN_NUMBER_VERIFIED") or v_details.get("Loan_Number") or v_details.get("Loan_Number_Verified") or v_details.get("Loan_Number_Last_Four_Digits"),
             "rpcStatus": data_raw.get("RPC_STATUS") or v_details.get("Call_Status") or v_details.get("RPC_Status")
         }
         
