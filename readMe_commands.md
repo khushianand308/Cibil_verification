@@ -1,70 +1,73 @@
-### 🐳 Docker (Minimal Local Production)
-Run the API with GPU support, auto-restart, and host-mounted models on **Port 5000**.
+### 🚀 vLLM High-Throughput (Port 5000)
+Run the extremely fast inference engine (100+ concurrent requests, ~165 RPM).
 
-**Image**: `khushianand28/cibil-api:latest` (Minimal version)
+**Image**: `khushianand28/cibil-api:vllm-alpha`
 
-**Start API (with Host Models)**:
-> [!NOTE]
-> Replace `/path/to/your/models` with the actual folder on your machine where the models are stored.
-
+**Start vLLM Engine**:
 ```bash
 docker run --gpus all -d \
   -p 5000:5000 \
   --restart unless-stopped \
   --ipc=host \
   --shm-size=1g \
-  -e WORKERS=2 \
-  -v /path/to/your/models:/app/models \
-  -e MODEL_NAME="/app/models/qwen2.5-7b" \
-  -e ADAPTERS_REPO="/app/models/cibil-adapters" \
-  --name cibil-production khushianand28/cibil-api:latest
-```
-
-**Stop & Remove API**:
-```bash
-docker stop cibil-production && docker rm cibil-production
-```
-
-**View Live Logs**:
-```bash
-docker logs -f cibil-production
+  -v ~/Cibil_verification/models:/app/models \
+  --name cibil-production khushianand28/cibil-api:vllm-alpha
 ```
 
 ---
 
-### 🐍 Python (Forever/Background)
-Run the API directly on the host using `nohup` on **Port 5000**.
+### 🐳 Standard API (Port 5000)
+Run the original reliable production API (30 RPM).
 
-**Start Forever (2 Workers)**:
+**Image**: `khushianand28/cibil-api:latest`
+
+**Start Standard API**:
 ```bash
-export WORKERS=2
-nohup python3 app.py > api.log 2>&1 &
+docker run --gpus all -d \
+  -p 5000:5000 \
+  --restart unless-stopped \
+  --ipc=host \
+  --shm-size=1g \
+  -v ~/Cibil_verification/models:/app/models \
+  --name cibil-production khushianand28/cibil-api:latest
 ```
 
-**Stop Script**:
+---
+
+### 🧪 API Testing (Port 5000)
+
+**Single Verification**:
 ```bash
-pkill -f "python3 app.py"
+curl -s -X POST "http://localhost:5000/verify" \
+     -H "Content-Type: application/json" \
+     -d '{"transcript": "Agent: Hi, am I speaking to PAWAN KUMAR? User: Yes, this is Pawan."}' | jq .
+```
+
+**Batch Verification**:
+```bash
+curl -s -X POST "http://localhost:5000/verify-batch" \
+     -H "Content-Type: application/json" \
+     -d '{
+       "transcripts": [
+         {
+           "interaction_transcript": [
+             {"role": "agent", "en_text": "Am I speaking to Pawan Kumar?"},
+             {"role": "user", "en_text": "Yes, I am Pawan."}
+           ]
+         },
+         {
+           "interaction_transcript": [
+             {"role": "agent", "en_text": "Is this Pawan?"},
+             {"role": "user", "en_text": "No, wrong number."}
+           ]
+         }
+       ]
+     }' | jq .
 ```
 
 ---
 
 ### 🚀 Maintenance
-**Purge Everything (Old containers/images)**:
-```bash
-docker system prune -af
-```
-
----
-
-### 🚀 Manual CI/CD Deployment
-1. Go to your GitHub Repository -> **Actions**.
-2. Select **"Build and Push Docker Image"**.
-3. Click **"Run workflow"** -> Select `main` -> **Run workflow**.
-
----
-
-### 🧪 API Batch Test (Port 5000)
-**Test Command**:
-```bash
-curl -X POST "http://localhost:5000/verify-batch" -H "Content-Type: application/json" --data-binary @batch_test_real.json
-```
+**View Logs**: `docker logs -f cibil-production`
+**Stop API**: `docker stop cibil-production && docker rm cibil-production`
+**Stress Test**: `$HOME/miniconda3/bin/python stress_test.py`
