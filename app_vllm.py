@@ -86,95 +86,93 @@ async def generate_vllm(transcript_text: str):
     
     return final_output.outputs[0].text
 
-def format_transcript_from_list(lines: List[TranscriptLine]) -> str:
-    formatted = []
-    for line in lines:
-        role = "Agent" if line.role.lower() == "agent" else "User"
-        formatted.append(f"{role}: {line.en_text}")
-    return "\n".join(formatted)
+def format_transcript(transcript_input):
+    """Converts raw JSON or text into readable 'Role: Content' format. (From app.py)"""
+    try:
+        if isinstance(transcript_input, str):
+            cleaned_input = transcript_input.strip()
+            if cleaned_input.startswith(("{", "[")):
+                data = json.loads(cleaned_input)
+            else:
+                return transcript_input
+        else:
+            data = transcript_input
+            
+        if isinstance(data, dict):
+            transcript_list = data.get('interaction_transcript', [])
+            if not transcript_list:
+                 transcript_list = data.get('transcript', [])
+        elif isinstance(data, list):
+            transcript_list = data
+        else:
+            return str(transcript_input)
+
+        dialogue = []
+        for turn in transcript_list:
+            if not isinstance(turn, dict): continue
+            role = turn.get('role', 'unknown').capitalize()
+            text = turn.get('en_text', turn.get('text', ''))
+            if text: dialogue.append(f"{role}: {text}")
+        
+        return "\n".join(dialogue) if dialogue else str(transcript_input)
+    except Exception:
+        return str(transcript_input)
 
 def clean_and_validate_analysis(data):
-    """Enforces business rules and standardizes output."""
+    """Enforces business rules and standardizes output (Matches app.py)."""
     try:
         # 1. Standardize DISPOSITION
-        disposition = data.get("disposition") or data.get("Disposition") or "ANSWERED"
-        raw_disp = str(disposition).upper().replace(" ", "_").strip()
+        raw_disp = str(data.get('DISPOSITION', '')).upper().replace(" ", "_")
         
-        # Mapping for vLLM specific variants
-        if "WRONG" in raw_disp: raw_disp = "WRONG_NUMBER"
+        if raw_disp == "WRONG_NUMBER": pass
+        elif raw_disp == "DISCONNECTED_WITH_CONVERSATION": pass
         elif "DISCONNECTED" in raw_disp: 
             if "WITHOUT" in raw_disp: raw_disp = "DISCONNECTED_WITHOUT_CONVERSATION"
-            else: raw_disp = "DISCONNECTED_WITH_CONVERSATION"
+            elif "WITH" in raw_disp: raw_disp = "DISCONNECTED_WITH_CONVERSATION"
+            else: raw_disp = "CALL_DROPPED"
         
-        # Strict Check fallback
         if raw_disp not in ALLOWED_DISPOSITIONS:
              raw_disp = "ANSWERED"
         
+        data['DISPOSITION'] = raw_disp
+
         # 2. Standardize RPC_STATUS
-        rpc_s = str(data.get("rpcStatus") or "insufficient_data").lower().strip()
-        if "complete" in rpc_s or "true" in rpc_s: rpc_s = "true"
-        elif "false" in rpc_s: rpc_s = "false"
-        elif rpc_s not in ALLOWED_RPC_STATUS: rpc_s = "insufficient_data"
+        raw_rpc = str(data.get('RPC_STATUS', '')).lower()
+        if raw_rpc == "true": data['RPC_STATUS'] = "true"
+        elif raw_rpc == "false": data['RPC_STATUS'] = "false"
+        elif raw_rpc in ALLOWED_RPC_STATUS:
+            data['RPC_STATUS'] = raw_rpc
+        else:
+            data['RPC_STATUS'] = "insufficient_data"
 
-        # 3. Clean Booleans & Consistency
-        name_v = bool(data.get("nameVerified"))
-        loan_v = bool(data.get("loanNumberVerified"))
+        # 3. Clean Booleans
+        data['LOAN_NUMBER_VERIFIED'] = bool(data.get('LOAN_NUMBER_VERIFIED', False))
+        data['NAME_VERIFIED'] = bool(data.get('NAME_VERIFIED', False))
 
-        if raw_disp == "WRONG_NUMBER":
-            name_v = False
-            loan_v = False
-        
-        # 4. Success-based RPC Promotion
-        # If both are verified, it counts as a successful Right Party Connect
-        if name_v and loan_v:
-            rpc_s = "true"
+        # 4. Consistency Shield
+        if data['DISPOSITION'] == "WRONG_NUMBER":
+            data['NAME_VERIFIED'] = False
+            data['LOAN_NUMBER_VERIFIED'] = False
 
         return {
-            "disposition": raw_disp,
-            "loanNumberVerified": loan_v,
-            "nameVerified": name_v,
-            "rpcStatus": rpc_s
+            "disposition": data['DISPOSITION'],
+            "loanNumberVerified": data['LOAN_NUMBER_VERIFIED'],
+            "nameVerified": data['NAME_VERIFIED'],
+            "rpcStatus": data['RPC_STATUS']
         }
     except Exception:
         return data
 
-def parse_llm_json(raw_text: str, transcript_text: str = ""):
+def parse_llm_json(raw_text: str):
+    """Robustly extracts and validates JSON from model output."""
     try:
         clean_text = raw_text.strip()
         start = clean_text.find('{')
         end = clean_text.rfind('}') + 1
-        data_raw = {}
-        
         if start != -1 and end != 0:
             json_str = clean_text[start:end]
             data_raw = json.loads(json_str)
-        
-        # --- Contextual Safety Net ---
-        # If JSON is empty or missing keys, look for obvious patterns in the transcript
-        if not data_raw or not any(data_raw.values()):
-            transcript_upper = transcript_text.upper()
-            if "WRONG NUMBER" in transcript_upper or "NOT PAWAN" in transcript_upper:
-                return clean_and_validate_analysis({"disposition": "WRONG_NUMBER"})
-            if "DISCONNECTED" in transcript_upper or "CALL DROPPED" in transcript_upper:
-                return clean_and_validate_analysis({"disposition": "DISCONNECTED_WITH_CONVERSATION"})
-
-        # Extract nested or flat keys
-        v_details_raw = data_raw.get("Verification_Details", {})
-        v_details = {}
-        if isinstance(v_details_raw, dict):
-            v_details = v_details_raw
-        elif isinstance(v_details_raw, list) and len(v_details_raw) > 0:
-            # Handle list of dicts or standard list fallback
-            v_details = v_details_raw[0] if isinstance(v_details_raw[0], dict) else {}
-
-        intermediate = {
-            "disposition": data_raw.get("DISPOSITION") or data_raw.get("Disposition"),
-            "nameVerified": data_raw.get("NAME_VERIFIED") or v_details.get("Name") or v_details.get("Name_Verified") or v_details.get("Customer_Name"),
-            "loanNumberVerified": data_raw.get("LOAN_NUMBER_VERIFIED") or v_details.get("Loan_Number") or v_details.get("Loan_Number_Verified") or v_details.get("Loan_Number_Last_Four_Digits"),
-            "rpcStatus": data_raw.get("RPC_STATUS") or v_details.get("Call_Status") or v_details.get("RPC_Status")
-        }
-        
-        return clean_and_validate_analysis(intermediate)
+            return clean_and_validate_analysis(data_raw)
     except Exception:
         pass
     return {"error": "Failed to parse JSON", "raw_output": raw_text}
@@ -182,19 +180,19 @@ def parse_llm_json(raw_text: str, transcript_text: str = ""):
 # --- Endpoints ---
 @app.post("/verify")
 async def verify(request: VerificationRequest):
-    prediction_raw = await generate_vllm(request.transcript)
+    processed_transcript = format_transcript(request.transcript)
+    prediction_raw = await generate_vllm(processed_transcript)
     print(f"DEBUG - Raw Prediction: {prediction_raw}")
-    return parse_llm_json(prediction_raw, request.transcript)
+    return parse_llm_json(prediction_raw)
 
 @app.post("/verify-batch")
 async def verify_batch(request: BatchRequest):
     results = []
     
-    # Process batch using asyncio.gather for true parallel vLLM execution
     async def process_item(item):
-        transcript_text = format_transcript_from_list(item.interaction_transcript)
-        prediction_raw = await generate_vllm(transcript_text)
-        return parse_llm_json(prediction_raw, transcript_text)
+        processed_transcript = format_transcript(item) # format_transcript handles dict/BatchTranscriptItem
+        prediction_raw = await generate_vllm(processed_transcript)
+        return parse_llm_json(prediction_raw)
 
     results = await asyncio.gather(*[process_item(item) for item in request.transcripts])
     return results
