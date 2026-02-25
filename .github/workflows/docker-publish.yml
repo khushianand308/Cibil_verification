@@ -88,12 +88,14 @@ jobs:
             docker rm cibil-production || true
             
             # 3. Run the new version with GPU support (Port 5000)
+            # vLLM requires the merged model; we mount the local models directory if Tag is vllm-alpha
             docker run --gpus all -d \
               -p 5000:5000 \
               --restart unless-stopped \
               --ipc=host \
               --shm-size=1g \
               -v ~/.cache/huggingface:/root/.cache/huggingface \
+              -v ~/Cibil_verification/models:/app/models \
               --name cibil-production \
               khushianand28/cibil-api:$TAG
             
