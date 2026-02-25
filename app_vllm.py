@@ -123,6 +123,11 @@ def clean_and_validate_analysis(data):
         if raw_disp == "WRONG_NUMBER":
             name_v = False
             loan_v = False
+        
+        # 4. Success-based RPC Promotion
+        # If both are verified, it counts as a successful Right Party Connect
+        if name_v and loan_v:
+            rpc_s = "true"
 
         return {
             "disposition": raw_disp,
