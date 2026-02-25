@@ -4,7 +4,17 @@ name: Build and Push Docker Image
 #   push:
 #     branches:
 #       - main
-on: workflow_dispatch # Manual trigger only
+on:
+  workflow_dispatch:
+    inputs:
+      type:
+        description: 'Image Type (Standard or vLLM)'
+        required: true
+        default: 'vllm'
+        type: choice
+        options:
+          - standard
+          - vllm
 
 jobs:
   build-and-push:
@@ -36,7 +46,7 @@ jobs:
         with:
           images: khushianand28/cibil-api
           tags: |
-            type=raw,value=latest
+            type=raw,value=${{ github.event.inputs.type == 'vllm' && 'vllm-alpha' || 'latest' }}
             type=sha,format=short
 
       - name: Set up QEMU
@@ -49,10 +59,10 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
+          file: ${{ github.event.inputs.type == 'vllm' && 'Dockerfile.vllm' || 'Dockerfile' }}
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          # Use build cache for faster builds
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
